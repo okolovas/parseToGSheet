@@ -113,7 +113,7 @@ function getTester(issueId) {
 
       for (i=0; i<customFields.length; i++) {
         var name = customFields[i].name;
-        if ( name=='Тестировщик' && customFields[i].value.length != 0 )
+        if ( name=='Tester' && customFields[i].value.length != 0 )
           return result = customFields[i].value[0].name;
       }
     } else {
