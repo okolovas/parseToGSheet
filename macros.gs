@@ -21,8 +21,10 @@ function onOpen() {
   var ui = SpreadsheetApp.getUi();
   ui.createMenu('Sandbox')
     .addItem('Load task list', 'loadTaskList')
+    .addItem('Load projects list', 'actualProjectsList')
     .addToUi();
 }
+
 /** 
  * Main function
  * Creates 2-level list:
@@ -53,9 +55,9 @@ function loadTaskList() {
   var projects = SpreadsheetApp.getActive().getSheetByName("Projects").getDataRange().getValues();
   var projectsCount = projects.length;
 
-
-  // Iterate the list of all projects and determiane which of them do have tasks
-  var currentPos = sheet.getActiveCell().getRow();
+  // Iterate the list of all projects and determine which of them do have tasks
+  var currentRow = sheet.getActiveCell().getRow();
+  var currentCol = sheet.getActiveCell().getColumn();
   var yt = false;
 
   var takeThisProject = false;
@@ -68,15 +70,18 @@ function loadTaskList() {
       if ( runsLength==3 ) {
         if ( runs[2].getText().trim() == projects[i] ) {
           takeThisProject = true;
-          sheet.getRange(currentPos, 2, 1, 1).setValue(projects[i]).setFontWeight("bold");
-          currentPos ++;
+          sheet.getRange(currentRow, currentCol, 1, 1).setValue(projects[i]).setFontWeight("bold");
+          sheet.getRange(currentRow, currentCol, 1, 4).setBackground("#d9ead3");
+          currentRow ++;
         }
         else {
           takeThisProject = false;
         }
       }
       else if( takeThisProject ) {
-        sheet.getRange(currentPos, 3, 1, 1).setValue( taskValues[j][0].getText() );
+        sheet.getRange(currentRow, currentCol+1, 1, 1).setValue( taskValues[j][0].getText() );
+        sheet.getRange(currentRow, currentCol+1, 1, 4).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+        sheet.getRange(currentRow, currentCol+2, 1, 1).setValue("Not started");
         if ( runsLength==7 ) {
           var ytURL = runs[3].getLinkUrl();
           var ytURLParsed = ytURL.split('/');
@@ -84,16 +89,18 @@ function loadTaskList() {
           var issueId = '-';
           if ( ytURLParsed[ytURLParsedLenth-2]=='issue' )
             issueId = ytURLParsed[ytURLParsedLenth-1];
-          sheet.getRange(currentPos, 2, 1, 1).setValue(ytURL);
+          sheet.getRange(currentRow, currentCol, 1, 1).setValue(ytURL);
           if ( !yt && issueId!='-' ) {
-            sheet.getRange(currentPos, 5, 1, 1).setValue(getTester(issueId));
-//            yt = true;
+            sheet.getRange(currentRow, currentCol+3, 1, 1).setValue(getTester(issueId));
           }
         }
-        currentPos ++;
+        currentRow ++;
       }
     }
   }
+  var r1 = sheet.getLastRow();
+  var c1 = sheet.getLastColumn();
+  sheet.getRange((1,1), 1, r1, c1).setBorder(true, true, true, true, true, true, "black", SpreadsheetApp.BorderStyle.SOLID);
 }
 
 // Get a tester name from YouTrack using token auth
@@ -141,5 +148,47 @@ function errorHandler(error) {
     }
   }
   return errorDesc;
+}
+
+
+/** 
+ * Double filter:
+ * projects are from the list of used
+ * and do have tasks in Sandbox
+ */
+function actualProjectsList() {
+  // Get an active Spreadsheet
+  var sheet = SpreadsheetApp.getActiveSheet();
+
+  // Get spreadsheet, data range and values for the sandbox task list
+  var sandbox = SpreadsheetApp.getActive().getSheetByName("Sandbox");
+  var taskRange = sandbox.getDataRange();
+  var taskValues = taskRange.getRichTextValues();
+  var taskValuesCount = taskValues.length;
+
+  // Get projects list from the corresponding spreadsheet
+  var projects = SpreadsheetApp.getActive().getSheetByName("Projects").getDataRange().getValues();
+  var projectsCount = projects.length;
+
+  // Iterate the list of all projects in smoke and seek for theie copies in data
+  var currentRow = sheet.getActiveCell().getRow();
+  var currentCol = sheet.getActiveCell().getColumn();
+  for ( var i=0; i<projectsCount; i++ ) {
+    for ( var j=0; j<taskValuesCount; j++ ) {
+      var runs = taskValues[j][0].getRuns();
+      var runsLength = runs.length;
+
+      if ( runsLength==3 ) {
+        if ( runs[2].getText().trim() == projects[i] ) {
+          var projectLink = SpreadsheetApp.newRichTextValue()
+            .setText(projects[i])
+            .setLinkUrl(runs[1].getLinkUrl())
+            .build();
+          sheet.getRange(currentRow, currentCol, 1, 1).setRichTextValue(projectLink);
+          currentRow ++;
+        }
+      }
+    }
+  }
 }
 
